@@ -84,7 +84,7 @@ def calculateFrameStats(img_array, verbose=False, after_frame=0):  # 提取相�
 
         # Convert to grayscale, scale down and blur to make
         # calculate image differences more robust to noise
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)      # 提取灰度信息
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)      # 提取灰度信息
         gray = scale(gray, 0.25, 0.25)      # 缩放为原来的四分之一
         gray = cv2.GaussianBlur(gray, (9,9), 0.0)   # 做高斯模糊
 
@@ -94,14 +94,17 @@ def calculateFrameStats(img_array, verbose=False, after_frame=0):  # 提取相�
 
 
         if lastFrame is not None:
+            n_bin = 60
+            curr_hist = cv2.calcHist([gray],[0],None,[n_bin],[0,180])
+            last_hist = cv2.calcHist([lastFrame],[0],None,[n_bin],[0,180])
+            diffMag = cv2.compareHist(curr_hist, last_hist, cv2.HISTCMP_BHATTACHARYYA)
 
-            diff = cv2.subtract(gray, lastFrame)        # 用当前帧减去上一帧
-
-            diffMag = cv2.countNonZero(diff)        # 计算两帧灰度值不同的像素点个数
+            # diff = cv2.subtract(gray, lastFrame)        # 用当前帧减去上一帧
+            # diffMag = cv2.countNonZero(diff)        # 计算两帧灰度值不同的像素点个数
 
             frame_info = {
                 "frame_number": int(frame_number),
-                "diff_count": int(diffMag)
+                "diff_count": float(diffMag)
             }
             data["frame_info"].append(frame_info)
 
@@ -142,42 +145,42 @@ def calculateFrameStats(img_array, verbose=False, after_frame=0):  # 提取相�
 
 
 def detece_scene(img_array):
-	data = calculateFrameStats(img_array)
+    data = calculateFrameStats(img_array)
 
-	# diff_threshold = (data["stats"]["sd"] * 1.85) + data["stats"]["mean"]
-	diff_threshold = (data["stats"]["sd"] * 4) + (data["stats"]["mean"])
+    # diff_threshold = (data["stats"]["sd"] * 1.85) + data["stats"]["mean"]
+    diff_threshold = (data["stats"]["sd"] * 10) + (data["stats"]["mean"])
 
-	scene_points = []
-	for index, fi in enumerate(data["frame_info"]):
-		if fi["diff_count"] >= diff_threshold:
-			scene_points.append(index)
+    scene_points = []
+    for index, fi in enumerate(data["frame_info"]):
+        if fi["diff_count"] >= diff_threshold:
+            scene_points.append(index)
 
-	return scene_points
+    return scene_points
     
 
 if __name__ == '__main__':
-	# import video
-	path = '.\\project_dataset\\frames\\soccer'
-	img_array = []
-	namelist = os.listdir(path)
-	namelist = sorted(namelist, key = lambda x: int(x[5:-4]))
-	for filename in tqdm(namelist, desc='load video img'):
-		imgpath = os.path.join(path, filename)
-		img = cv2.imread(imgpath)
-		height, width, layers = img.shape
-		size = (width,height)
-		img_array.append(img)
-	
-	# scene detection
-	scene_points = detece_scene(img_array)
-	scene_points.append(len(img_array))
-	
-	# export video
-	scene_idx = 0
-	out = cv2.VideoWriter('result\\project_scene_' + str(scene_idx) + '.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
-	for i in tqdm(range(len(img_array)), desc='export video'):
-		out.write(img_array[i])
-		if i == scene_points[scene_idx]:
-			out.release()
-			scene_idx += 1
-			out = cv2.VideoWriter('result\\project_scene_' + str(scene_idx) + '.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
+    # import video
+    path = '.\\project_dataset\\frames\\meridian'
+    img_array = []
+    namelist = os.listdir(path)
+    namelist = sorted(namelist, key = lambda x: int(x[5:-4]))
+    for filename in tqdm(namelist, desc='load video img'):
+        imgpath = os.path.join(path, filename)
+        img = cv2.imread(imgpath)
+        height, width, layers = img.shape
+        size = (width,height)
+        img_array.append(img)
+    
+    # scene detection
+    scene_points = detece_scene(img_array)
+    scene_points.append(len(img_array))
+    
+    # export video
+    scene_idx = 0
+    out = cv2.VideoWriter('result\\project_scene_' + str(scene_idx) + '.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
+    for i in tqdm(range(len(img_array)), desc='export video'):
+        out.write(img_array[i])
+        if i == scene_points[scene_idx]:
+            out.release()
+            scene_idx += 1
+            out = cv2.VideoWriter('result\\project_scene_' + str(scene_idx) + '.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
