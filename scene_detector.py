@@ -1,4 +1,4 @@
-# 基于灰度图像素点移动距离的场景分割
+# 基于hue hist距离的场景分割
 
 import cv2
 import argparse
@@ -7,73 +7,17 @@ import os
 import numpy as np
 from tqdm import tqdm
 
-def getInfo(sourcePath):
-    cap = cv2.VideoCapture(sourcePath)
-    info = {
-        "framecount": cap.get(cv2.CAP_PROP_FRAME_COUNT),
-        "fps": cap.get(cv2.CAP_PROP_FPS),
-        "width": int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-        "heigth": int(cap.get(cv2.CAP_PROP_FRAME_Heigth)),
-        "codec": int(cap.get(cv2.CAP_PROP_FOURCC))
-    }
-    cap.release()
-    return info
-
 
 def scale(img, xScale, yScale):
     res = cv2.resize(img, None,fx=xScale, fy=yScale, interpolation = cv2.INTER_AREA)
     return res
 
+
 def resize(img, width, heigth):
     res = cv2.resize(img, (width, heigth), interpolation = cv2.INTER_AREA)
     return res
-
-#
-# Extract [numCols] domninant colors from an image
-# Uses KMeans on the pixels and then returns the centriods
-# of the colors
-#
-def extract_cols(image, numCols):
-    # convert to np.float32 matrix that can be clustered
-    Z = image.reshape((-1,3))
-    Z = np.float32(Z)
-
-    # Set parameters for the clustering
-    max_iter = 20
-    epsilon = 1.0
-    K = numCols
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, max_iter, epsilon)
-    labels = np.array([])
-    # cluster
-    compactness, labels, centers = cv2.kmeans(Z, K, labels, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
-
-    clusterCounts = []
-    for idx in range(K):
-        count = len(Z[labels == idx])
-        clusterCounts.append(count)
-
-    #Reverse the cols stored in centers because cols are stored in BGR
-    #in opencv.
-    rgbCenters = []
-    for center in centers:
-        bgr = center.tolist()
-        bgr.reverse()
-        rgbCenters.append(bgr)
-
-    cols = []
-    for i in range(K):
-        iCol = {
-            "count": clusterCounts[i],
-            "col": rgbCenters[i]
-        }
-        cols.append(iCol)
-
-    return cols
-
-
-#
-# Calculates change data one one frame to the next one.
-#
+    
+    
 def calculateFrameStats(img_array, verbose=False, after_frame=0):  # 提取相邻帧的差别
     data = {
         "frame_info": []
@@ -142,13 +86,11 @@ def calculateFrameStats(img_array, verbose=False, after_frame=0):  # 提取相�
     return data
 
 
-
-
 def detece_scene(img_array):
     data = calculateFrameStats(img_array)
 
     # diff_threshold = (data["stats"]["sd"] * 1.85) + data["stats"]["mean"]
-    diff_threshold = (data["stats"]["sd"] * 10) + (data["stats"]["mean"])
+    diff_threshold = (data["stats"]["sd"] * 6) + (data["stats"]["mean"])
 
     scene_points = []
     for index, fi in enumerate(data["frame_info"]):
@@ -160,10 +102,13 @@ def detece_scene(img_array):
 
 if __name__ == '__main__':
     # import video
-    path = '.\\project_dataset\\frames\\meridian'
+    path = '.\\project_dataset\\frames\\soccer'
     img_array = []
     namelist = os.listdir(path)
     namelist = sorted(namelist, key = lambda x: int(x[5:-4]))
+    
+    namelist = namelist[:4000]
+    
     for filename in tqdm(namelist, desc='load video img'):
         imgpath = os.path.join(path, filename)
         img = cv2.imread(imgpath)
