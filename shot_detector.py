@@ -32,35 +32,20 @@ def resize(img, width, heigth):
     return res
     
  
-def calculateFrameStats(img_array, verbose=False, after_frame=0):  # 提取相邻帧的差别
+def calculateFrameStats(img_array, num_feature_points=50, verbose=False, after_frame=0):  # 提取相邻帧的差别
     data = {
         "frame_info": []
     }
 
     lastFrame = None
-    for frame_number, frame in tqdm(enumerate(img_array)):
-
-        # Convert to grayscale, scale down and blur to make
-        # calculate image differences more robust to noise
-        
-        gray = frame
-        
-        # gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)      # 提取灰度信息
-        # gray = scale(gray, 0.25, 0.25)      # 缩放为原来的四分之一
-        # gray = cv2.GaussianBlur(gray, (9,9), 0.0)   # 做高斯模糊
-
+    for frame_number, frame in tqdm(enumerate(img_array), desc='shot detection'):
         if frame_number < after_frame:
-            lastFrame = gray
+            lastFrame = frame
             continue
-        
-        
 
         if lastFrame is not None:
-            
-            n_points = 50
-            
-            orb = cv2.ORB_create(nfeatures=n_points)
-            kp1, des1 = orb.detectAndCompute(gray, None)
+            orb = cv2.ORB_create(nfeatures=num_feature_points)
+            kp1, des1 = orb.detectAndCompute(frame, None)
             kp2, des2 = orb.detectAndCompute(lastFrame, None)
             
             try:
@@ -68,69 +53,10 @@ def calculateFrameStats(img_array, verbose=False, after_frame=0):  # 提取相�
                 bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
                 matches = bf.match(des1, des2)
                 matches = sorted(matches, key=lambda x: x.distance)
-                n_outlier = 0
-            
-                diffMag = 1 - (len(matches) - n_outlier) / n_points
+                # TODO: 考虑matches间的距离
+                diffMag = 1.0 - len(matches) / num_feature_points
             except:
-                diffMag = 0
-                
-            # if des1[0][0] != des2[0][0]:
-                # print([x.distance for x in matches])
-                # exit()
-            
-            # n_outlier = np.sum(np.array([x.distance > 50 for x in matches]))
-           
-        
-        
-        
-        
-            # p0 = cv2.goodFeaturesToTrack(lastFrame, mask=None, **feature_params)
-            
-            # if p0 is not None:
-                # p1, st, err = cv2.calcOpticalFlowPyrLK(gray, lastFrame, p0, None, **lk_params)
-                
-                # diffMag = 1 - st.mean()
-            # else:
-                # diffMag = 0
-                
-            # q1 = cv2.goodFeaturesToTrack(gray, mask=None, **feature_params)
-            # if q1 is not None:
-                # q0, stq, errq = cv2.calcOpticalFlowPyrLK(lastFrame, gray, q1, None, **lk_params)
-                
-            
-                # diffMagq = 1 - stq.mean()
-            # else:
-                # diffMagq = 0
-            # diffMag = max(diffMag, diffMagq)
-            
-            
-            
-            
-                
-            # if st.sum() == 0:
-            
-                # print(p0)
-                # print(p1)
-                # print(st)
-                # print(err)
-                # exit()
-            
-            # # 根据状态选择
-            # good_new = p1  # [st == 1]
-            # good_old = p0  # [st == 1]
-
-            # # 绘制跟踪线
-            # diff = 0
-            # for i, (new, old) in enumerate(zip(good_new,good_old)):
-                # a,b = new.ravel()
-                # c,d = old.ravel()
-                # diff += math.sqrt(math.pow(a-b, 2) + math.pow(c-d, 2))
-        
-            # diffMag = diff / (len(good_new) + 1e-6)
-                
-            
-            
-            
+                diffMag = 1.0
             
             frame_info = {
                 "frame_number": int(frame_number),
@@ -144,7 +70,7 @@ def calculateFrameStats(img_array, verbose=False, after_frame=0):  # 提取相�
                     break
 
         # Keep a ref to this frame for differencing on the next iteration
-        lastFrame = gray
+        lastFrame = frame
 
     #compute some states
     diff_counts = [fi["diff_count"] for fi in data["frame_info"]]
@@ -174,11 +100,15 @@ def calculateFrameStats(img_array, verbose=False, after_frame=0):  # 提取相�
     return data
 
 
-def detect_shot(img_array):
-    data = calculateFrameStats(img_array)
-
+def detect_shot(data, num_shots):
+    
+    
+    scores = [fi["diff_count"] for fi in data["frame_info"]]
+    scores = sorted(scores, reverse=True)
+    diff_threshold = scores[num_shots]
+    
     # diff_threshold = (data["stats"]["sd"] * 1.85) + data["stats"]["mean"]
-    diff_threshold = (data["stats"]["sd"] * 3) + (data["stats"]["mean"])
+    # diff_threshold = (data["stats"]["sd"] * 3) + (data["stats"]["mean"])
 
     scene_points = []
     for index, fi in enumerate(data["frame_info"]):
@@ -189,8 +119,13 @@ def detect_shot(img_array):
     
 
 if __name__ == '__main__':
-    # import video
+    # parameters
     path = '.\\project_dataset\\frames\\soccer'
+    num_shots = 60  # 目标shot总数
+    num_feature_points = 50  # 特征点数量
+    min_frame_per_shot = 8  # frame数少于该值的shot会被merge
+    
+    # import video
     img_array = []
     namelist = os.listdir(path)
     namelist = sorted(namelist, key = lambda x: int(x[5:-4]))
@@ -201,7 +136,7 @@ if __name__ == '__main__':
         size = (width,height)
         img_array.append(img)
     
-    # scene detection
+    # (skip) scene detection
     # scene_points = detece_scene(img_array)
     # print(scene_points)
     scene_points = []
@@ -211,7 +146,8 @@ if __name__ == '__main__':
     shot_points = []
     scene_idx = 0
     for i in range(len(scene_points) - 1):
-        shots = detect_shot(img_array[scene_points[i]: scene_points[i+1]])
+        data = calculateFrameStats(img_array[scene_points[i]: scene_points[i+1]], num_feature_points)
+        shots = detect_shot(data, num_shots)
         shots = [x + scene_points[i] for x in shots]
         shot_points.extend(shots)
         shot_points.append(scene_points[i+1])
@@ -220,7 +156,7 @@ if __name__ == '__main__':
     # merge short shots greedily
     reduced_points = []
     for p in range(len(shot_points) - 1):
-        if shot_points[p+1] - shot_points[p] < 8:
+        if shot_points[p+1] - shot_points[p] < min_frame_per_shot:
             continue
         else:
             reduced_points.append(shot_points[p])
@@ -230,10 +166,10 @@ if __name__ == '__main__':
     
     # export video
     shot_idx = 0
-    out = cv2.VideoWriter('result\\project_shot_' + str(shot_idx) + '.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
+    out = cv2.VideoWriter('result\\shot_' + str(shot_idx) + '.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
     for i in tqdm(range(len(img_array)), desc='export video'):
         out.write(img_array[i])
         if i == shot_points[shot_idx]:
             out.release()
             shot_idx += 1
-            out = cv2.VideoWriter('result\\project_shot_' + str(shot_idx) + '.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
+            out = cv2.VideoWriter('result\\shot_' + str(shot_idx) + '.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
