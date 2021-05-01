@@ -16,8 +16,8 @@ def cvImgtoQtImg(cvImg): #opencv image to qt image
 
 
 
-class mainwin(QtWidgets.QMainWindow,mainWin.Ui_MainWindow):
-    def __init__(self):
+class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
+    def __init__(self, argv):
         super().__init__()
         self.setupUi(self)
         self.bClose = False
@@ -26,13 +26,15 @@ class mainwin(QtWidgets.QMainWindow,mainWin.Ui_MainWindow):
         self.sleep = False
         self.index = 0
         self.images = []
+        self.folderpath = argv[1]
+        self.wavpath = argv[2]
 
         self.actionshowImg.triggered.connect(self.playVideoFile) # connect showImg button with playVideoFile method
         self.actionPlayOrPause.triggered.connect(self.playOrPause) # connect actionPlayOrPause button with playOrPause method
 
     def playVideoFile(self): # play the image series as a video
         if len(self.images) == 0:
-            self.images = self.getFrameArray()
+            self.images = self.getFrameArray(self.folderpath)
     
         print("start reading image series from index " + str(self.index))
         for index in tqdm(range(self.index, len(self.images))):
@@ -49,11 +51,14 @@ class mainwin(QtWidgets.QMainWindow,mainWin.Ui_MainWindow):
         self.index = index
 
 
-    def getFrameArray(self, folderpath='C:\\Users\\16200\\Desktop\\project_dataset\\frames\\soccer'):
+    def getFrameArray(self, folderpath):
+        if folderpath == '':
+            print('empty frame path')
+            exit(0)
         path = folderpath
         img_array = []
         namelist = sorted(os.listdir(path), key = lambda x: int(x[5:-4]))
-        print("start loading images from local file")
+        print("start loading images from local file: " + folderpath)
         for image in tqdm(namelist):
             imgpath = os.path.join(path, image)
             img = cv2.imread(imgpath)
@@ -75,6 +80,6 @@ class mainwin(QtWidgets.QMainWindow,mainWin.Ui_MainWindow):
 
 if __name__=='__main__':
     app = QtWidgets.QApplication(sys.argv)
-    w = mainwin()
+    w = mainwin(sys.argv)
     w.show()
     sys.exit(app.exec_())
