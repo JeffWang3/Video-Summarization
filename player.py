@@ -1,6 +1,9 @@
-import cv2
-from PyQt5 import QtGui,QtWidgets,QtCore
 import mainWin
+
+import cv2
+from PyQt5 import QtGui,QtWidgets,QtCore, QtMultimedia
+from PyQt5.QtCore import QUrl
+from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 
 import sys
 import numpy as np
@@ -27,15 +30,19 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         self.index = 0
         self.images = []
         self.folderpath = argv[1]
-        self.wavpath = argv[2]
+        self.audiopath = argv[2]
+        self.audioPlayer = QMediaPlayer()
+        self.audioPlayer.setMedia(QMediaContent(QUrl.fromLocalFile(self.audiopath)))
 
         self.actionshowImg.triggered.connect(self.playVideoFile) # connect showImg button with playVideoFile method
+        # self.actionshowImg.triggered.connect(self.playAudio)
         self.actionPlayOrPause.triggered.connect(self.playOrPause) # connect actionPlayOrPause button with playOrPause method
 
     def playVideoFile(self): # play the image series as a video
         if len(self.images) == 0:
             self.images = self.getFrameArray(self.folderpath)
-    
+        
+        self.audioPlayer.play()
         print("start reading image series from index " + str(self.index))
         for index in tqdm(range(self.index, len(self.images))):
             if self.sleep:
@@ -46,9 +53,13 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
             self.ImgDisp.resize(size)
             self.ImgDisp.show() # refresh the image
             cv2.waitKey(self.waitKeyTime) # sleep according to fps
+        
         self.index = index
-        print("pause or exit from index " + str(self.index))
-        self.index = index
+        print("\n *** pause or exit from index " + str(self.index))
+        print("\n *********** try to pause audio")
+        self.audioPlayer.pause()
+        print(self.audioPlayer.state())
+
 
 
     def getFrameArray(self, folderpath):
@@ -72,9 +83,20 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         # self.sleep = not self.sleep
         if self.sleep == False:
             self.sleep = True
+            # self.audioPlayer.pause()
         else:
             self.sleep = False
             self.playVideoFile()
+            # self.audioPlayer.play()
+
+    # def playAudio(self):
+    #     audiopath = self.audiopath
+    #     print('************Start to play audio from: ' + audiopath)
+    #     # sound = QtMultimedia.QSound(audiopath)
+    #     # sound.play()
+    #     self.audioPlayer.setMedia(QMediaContent(QUrl.fromLocalFile(audiopath)))
+    #     self.audioPlayer.play()
+    #     print('***************exit playing')
 
 
 

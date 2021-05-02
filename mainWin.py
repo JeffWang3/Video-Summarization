@@ -1,4 +1,4 @@
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets, QtMultimedia
 
 
 class Ui_MainWindow(object):
@@ -6,7 +6,7 @@ class Ui_MainWindow(object):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(625, 430)
 
-        # set widget
+        # set image display widget
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.ImgDisp = QtWidgets.QLabel(self.centralwidget)
@@ -39,6 +39,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menushowImg.menuAction())
         self.toolBar.addAction(self.actionshowImg)
 
+        # play or pause action
         self.actionPlayOrPause = QtWidgets.QAction(MainWindow)
         self.actionPlayOrPause.setObjectName("PlarOrPause")
         self.menushowImg.addAction(self.actionPlayOrPause)
