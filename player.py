@@ -36,8 +36,11 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         self.audioPlayer.setMedia(QMediaContent(QUrl.fromLocalFile(self.audiopath)))
         self.frameTuples = []
 
-        self.actionshowImg.triggered.connect(self.videoSummarize) # connect showImg button with playVideoFile method
-        self.actionPlayOrPause.triggered.connect(self.playOrPause) # connect actionPlayOrPause button with playOrPause method
+        self.openbtn.clicked.connect(self.videoSummarize)
+        self.playbtn.clicked.connect(self.playOrPause)
+        self.slider.sliderMoved.connect(self.changeSliderValue)
+        #self.actionshowImg.triggered.connect(self.videoSummarize) # connect showImg button with playVideoFile method
+        #self.actionPlayOrPause.triggered.connect(self.playOrPause) # connect actionPlayOrPause button with playOrPause method
 
 
     def videoSummarize(self):
@@ -62,6 +65,7 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         self.audioPlayer.play()
         print("start reading image series from index " + str(self.index))
         for index in tqdm(range(self.index, len(self.images))):
+            self.setSliderValue(index)
             self.audioPlayer.setPosition(int(self.image_indices[index] * 1000 / 30))
             if self.sleep:
                 break
@@ -124,6 +128,21 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         else:
             self.sleep = False
             self.renderVideo()
+
+    def changeSliderValue(self, value):
+        if self.sleep == False:
+            self.sleep = True
+            self.iconchange()
+        self.index = int(value / 100 * len(self.images))
+        QtImg = cvImgtoQtImg(self.images[self.index])  # convert image to qt style
+        self.ImgDisp.setPixmap(QtGui.QPixmap.fromImage(QtImg))
+        size = QtImg.size() 
+        self.ImgDisp.resize(size)
+        self.ImgDisp.show() # refresh the image
+
+    def setSliderValue(self, index):
+        self.slider.setValue(int(index / len(self.images) * 100))
+
 
 
 if __name__=='__main__':
