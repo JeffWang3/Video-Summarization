@@ -25,24 +25,44 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         self.fps = 30
         self.waitKeyTime = int(1000/self.fps)
         self.sleep = False
+        self.currentTupleIndex = 0
         self.index = 0
         self.images = []
+        self.image_indices = []
+        self.audioPositions = []
         self.folderpath = argv[1]
         self.audiopath = argv[2]
         self.audioPlayer = QMediaPlayer()
         self.audioPlayer.setMedia(QMediaContent(QUrl.fromLocalFile(self.audiopath)))
+        self.frameTuples = []
 
-        self.actionshowImg.triggered.connect(self.playVideoFile) # connect showImg button with playVideoFile method
+        self.actionshowImg.triggered.connect(self.videoSummarize) # connect showImg button with playVideoFile method
         self.actionPlayOrPause.triggered.connect(self.playOrPause) # connect actionPlayOrPause button with playOrPause method
 
-    def playVideoFile(self): # play the image series as a video
-        if len(self.images) == 0:
-            self.images = self.getFrameArray(self.folderpath)
-        
-        # self.audioPlayer.setPosition(10000)
+
+    def videoSummarize(self):
+        # process by Fei
+        # self.frameTuples = [(0, 16200-1)]
+        self.frameTuples = [(0, 300), (16000, 16200-1)]
+        self.renderVideo()
+        return
+
+
+    def renderVideo(self):
+        '''
+        render video of frame-id tuples-list [(s0, e0), (s1, e1), (s2, e2), ...] (ei inclusive);
+        ensure that tuples are ordered, i.e. we have ei-1 <= si;
+        '''
+        frameTuples = self.frameTuples
+        if len(self.images) == 0: # if empty, load the images; else we do not need to load it again
+            self.images, self.image_indices = self.getFrameArray(self.folderpath, frameTuples)
+            self.audioPositions = self.getAudioPositionTuples(frameTuples)
+
+
         self.audioPlayer.play()
         print("start reading image series from index " + str(self.index))
         for index in tqdm(range(self.index, len(self.images))):
+            self.audioPlayer.setPosition(int(self.image_indices[index] * 1000 / 30))
             if self.sleep:
                 break
             QtImg = cvImgtoQtImg(self.images[index])  # convert image to qt style
@@ -53,35 +73,57 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
             cv2.waitKey(self.waitKeyTime) # sleep according to fps
         
         self.index = index
-        print("\n *** pause or exit from index " + str(self.index))
-        print("\n *********** try to pause audio")
+        # print("\n *** pause or exit from index " + str(self.index))
         self.audioPlayer.pause()
 
+        return
 
-    def getFrameArray(self, folderpath):
+
+    def getAudioPositionTuples(self, frameTuples):
+        '''
+        compute audio position tuples according to the frame tuples and fps = 30;
+        return position tuples in milisecond rate  [(s0, e0), (s1, e1), (s2, e2), ...] (ei inclusive);
+        '''
+        audioPositions = []
+        for s, e in frameTuples:
+            audioPositions.append((int(s*1000/30), int(e*1000/30)))
+
+        return audioPositions
+
+    def getFrameArray(self, folderpath, frameTuples): 
+        '''
+        render video of frame-id tuples-list [(s1, e1), (s2, e2), ...]  (ei inclusive);
+        ensure that tuples are ordered, i.e. we have ei-1 <= si;
+        return frames in the same order
+        '''
         if folderpath == '':
-            print('empty frame path')
+            print('ERROR: empty path for the frames')
             exit(0)
+
         path = folderpath
         img_array = []
-        namelist = sorted(os.listdir(path), key = lambda x: int(x[5:-4]))
+        img_index_array = []
+
         print("start loading images from local file: " + folderpath)
-        for image in tqdm(namelist):
-            imgpath = os.path.join(path, image)
-            img = cv2.imread(imgpath)
-            # height, width, layers = img.shape
-            # size = (width,height)
-            img_array.append(img)
-        print("finish loading images from local file")
-        return img_array 
+        for s, e in tqdm(frameTuples):
+            for i in tqdm(range(s, e+1)): # append image from si to ei(inclusive)
+                imgpath = os.path.join(path, 'frame' + str(i) + '.jpg')
+                img = cv2.imread(imgpath)
+                img_array.append(img)      
+                img_index_array.append(i)      
+        print("finish loading images from local file, frame number is " + str(len(img_array)))
+        return img_array, img_index_array
     
     def playOrPause(self):
-        # self.sleep = not self.sleep
+        '''
+        if the video is playing, pause it;
+        else awake and resume
+        '''
         if self.sleep == False:
             self.sleep = True
         else:
             self.sleep = False
-            self.playVideoFile()
+            self.renderVideo()
 
 
 if __name__=='__main__':
