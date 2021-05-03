@@ -12,7 +12,9 @@ import os
 
 def cvImgtoQtImg(cvImg): #opencv image to qt image
     QtImgBuf = cv2.cvtColor(cvImg,  cv2.COLOR_BGR2BGRA)
+
     QtImg = QtGui.QImage(QtImgBuf.data, QtImgBuf.shape[1], QtImgBuf.shape[0], QtGui.QImage.Format_RGB32)
+    
     return QtImg
 
 
@@ -33,13 +35,14 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         self.audioPlayer.setMedia(QMediaContent(QUrl.fromLocalFile(self.audiopath)))
 
         self.actionshowImg.triggered.connect(self.playVideoFile) # connect showImg button with playVideoFile method
+        # self.actionshowImg.triggered.connect(self.playAudio)
         self.actionPlayOrPause.triggered.connect(self.playOrPause) # connect actionPlayOrPause button with playOrPause method
 
     def playVideoFile(self): # play the image series as a video
         if len(self.images) == 0:
             self.images = self.getFrameArray(self.folderpath)
         
-        # self.audioPlayer.setPosition(10000)
+        self.audioPlayer.setPosition(10000)
         self.audioPlayer.play()
         print("start reading image series from index " + str(self.index))
         for index in tqdm(range(self.index, len(self.images))):
@@ -56,6 +59,8 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         print("\n *** pause or exit from index " + str(self.index))
         print("\n *********** try to pause audio")
         self.audioPlayer.pause()
+        # print(self.audioPlayer.state())
+
 
 
     def getFrameArray(self, folderpath):
@@ -79,9 +84,21 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         # self.sleep = not self.sleep
         if self.sleep == False:
             self.sleep = True
+            # self.audioPlayer.pause()
         else:
             self.sleep = False
             self.playVideoFile()
+            # self.audioPlayer.play()
+
+    # def playAudio(self):
+    #     audiopath = self.audiopath
+    #     print('************Start to play audio from: ' + audiopath)
+    #     # sound = QtMultimedia.QSound(audiopath)
+    #     # sound.play()
+    #     self.audioPlayer.setMedia(QMediaContent(QUrl.fromLocalFile(audiopath)))
+    #     self.audioPlayer.play()
+    #     print('***************exit playing')
+
 
 
 if __name__=='__main__':
