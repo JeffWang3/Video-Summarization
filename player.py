@@ -70,7 +70,8 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         print("start reading image series from index " + str(self.index))
         for index in tqdm(range(self.index, len(self.images))):
             self.setSliderValue(index)
-            self.audioPlayer.setPosition(int(self.image_indices[index] * 1000 / 30))
+            if index == 0 or (self.image_indices[index] - self.image_indices[index-1] != 1) :
+                self.audioPlayer.setPosition(int(self.image_indices[index] * 1000 / 30))
             if self.sleep:
                 break
             QtImg = cvImgtoQtImg(self.images[index])  # convert image to qt style
