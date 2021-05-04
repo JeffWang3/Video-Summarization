@@ -1,19 +1,28 @@
 from PyQt5 import QtCore, QtGui, QtWidgets, QtMultimedia
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QSlider, QPushButton, QHBoxLayout, QVBoxLayout, QStyle
 
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
+        
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(625, 430)
 
-        # set image display widget
+        self.playstate = False
+
+        #set central Widget
         self.centralwidget = QtWidgets.QWidget(MainWindow)
-        self.centralwidget.setObjectName("centralwidget")
-        self.ImgDisp = QtWidgets.QLabel(self.centralwidget)
-        self.ImgDisp.setGeometry(QtCore.QRect(0, 0, 54, 12))
-        self.ImgDisp.setObjectName("ImgDisplay")
         MainWindow.setCentralWidget(self.centralwidget)
 
+        # set image display widget
+        self.ImgDispwidget = QtWidgets.QWidget(MainWindow)
+        self.ImgDispwidget.setObjectName("ImgDispwidget")
+        self.ImgDisp = QtWidgets.QLabel(self.ImgDispwidget)
+        #self.ImgDisp.setGeometry(QtCore.QRect(0, 0, 54, 12))
+        self.ImgDisp.setObjectName("ImgDisplay")
+        #MainWindow.setCentralWidget(self.centralwidget)
+        '''
         # set menu bar
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 625, 17))
@@ -45,9 +54,57 @@ class Ui_MainWindow(object):
         self.menushowImg.addAction(self.actionPlayOrPause)
         self.menubar.addAction(self.menushowImg.menuAction())
         self.toolBar.addAction(self.actionPlayOrPause)
+        '''
 
+        # open button
+        self.openbtn = QPushButton('Open Video')
+        self.openbtn.clicked.connect(self.iconchange)
+
+        # play or pause button
+        self.playbtn = QPushButton()
+        #self.playbtn.setEnabled(False)
+        self.playbtn.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
+        self.playbtn.clicked.connect(self.iconchange)
+
+        # slide action
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setObjectName("Slider")
+        self.slider.setRange(0,100)
+        #self.menushowImg.addAction(self.actionPlayOrPause)
+        #self.menubar.addAction(self.menushowImg.menuAction())
+        #self.toolBar.addAction(self.actionPlayOrPause)
+
+
+        #set layout
+        hboxLayout = QHBoxLayout()
+        hboxLayout.setContentsMargins(0,0,0,0);
+        hboxLayout.addWidget(self.openbtn)
+        hboxLayout.addWidget(self.playbtn)
+        hboxLayout.addWidget(self.slider)
+
+        vboxlayout = QVBoxLayout()
+        vboxlayout.addWidget(self.ImgDispwidget)
+        vboxlayout.addLayout(hboxLayout)
+
+        self.centralwidget.setLayout(vboxlayout)
+
+        '''
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+        '''
+    def iconchange(self):
+        if self.playstate == False:
+            self.playstate = True
+            self.playbtn.setIcon(self.style().standardIcon(QStyle.SP_MediaPause))
+        else:
+            self.playstate = False
+            self.playbtn.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
+
+    def positionchange(self, position):
+        self.slider.serValue(position)
+
+    def durationchange(self, duration):
+        self.slider.setRange(duration)
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
