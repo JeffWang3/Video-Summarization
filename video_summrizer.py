@@ -15,21 +15,39 @@ class VideoSummrizer():
         self.img_array = None
         self.wav_array = None
         self.frame_info = None
-        self.shot_index = None  # frame indexes for shot starts 
+        self.shot_span = None  # frame indexes for shot starts 
+        self.shot_score = None
+        self.selected_shots = None
         
     def import_video(self, img_array, wav_array=None):
         self.img_array = img_array
         self.wav_array = wav_array
         self.frame_info = [{'fid':fid} for fid in range(len(self.img_array))]
         
-    def motion_detection(self, num_feature_points=50):
+    def import_video_from_path(self, img_folder, wav_path):
+        self.img_array = []
+        namelist = os.listdir(img_folder)
+        namelist = sorted(namelist, key = lambda x: int(x[5:-4]))
+        for filename in tqdm(namelist, desc='load video img'):
+            imgpath = os.path.join(img_folder, filename)
+            img = cv2.imread(imgpath)
+            height, width, layers = img.shape
+            size = (width,height)
+            self.img_array.append(img)
+            
+        self.wav_array = None
+        
+        self.frame_info = [{'fid':fid} for fid in range(len(self.img_array))]
+        
+    def motion_detection(self, num_feature_points=200):
         orb = cv2.ORB_create(nfeatures=num_feature_points)
         lastFrame = None
         for fid, frame in tqdm(enumerate(self.img_array), desc='motion detection'):
             if fid == 0:
                 last_kp, last_des = orb.detectAndCompute(frame, None)
-                self.frame_info[fid]['motion_feature_loc'] = last_kp
+                self.frame_info[fid]['motion_feature_loc'] = [kp.pt for kp in last_kp]
                 self.frame_info[fid]['motion_matched_num'] = num_feature_points
+                self.frame_info[fid]['motion_mean_dist'] = 0
                 continue
 
             curr_kp, curr_des = orb.detectAndCompute(frame, None)
@@ -38,27 +56,33 @@ class VideoSummrizer():
                 bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
                 matches = bf.match(last_des, curr_des)
                 matches_dist = np.array([x.distance for x in matches])
-                
-                self.frame_info[fid]['motion_feature_loc'] = curr_kp
+
+                self.frame_info[fid]['motion_feature_loc'] = [kp.pt for kp in curr_kp]
                 self.frame_info[fid]['motion_matched_num'] = len(matches)
                 # self.frame_info[fid]['motion_matched_dist'] = matches_dist
-                self.frame_info[fid]['motion_max_dist'] = np.max(matches_dist)
-                self.frame_info[fid]['motion_min_dist'] = np.min(matches_dist)
-                self.frame_info[fid]['motion_mean_dist'] = np.mean(matches_dist)
+                # self.frame_info[fid]['motion_max_dist'] = np.max(matches_dist)
+                # self.frame_info[fid]['motion_min_dist'] = np.min(matches_dist)
+                self.frame_info[fid]['motion_mean_dist'] = np.mean(matches_dist) if len(matches_dist) > 0 else 60
             except:
+                self.frame_info[fid]['motion_feature_loc'] = []
                 self.frame_info[fid]['motion_matched_num'] = 0
+                self.frame_info[fid]['motion_mean_dist'] = 60
                 pass
 
             last_kp, last_des = curr_kp, curr_des
             
     def face_detection(self):
         for fid, raw_frame in tqdm(enumerate(self.img_array), desc='face detection'):
-            frame_gray = cv2.cvtColor(raw_frame, cv2.COLOR_BGR2GRAY)
+            if fid % 2 == 0:
+                frame_gray = cv2.cvtColor(raw_frame, cv2.COLOR_BGR2GRAY)
                 
-            faces = self.face_cascade.detectMultiScale(frame_gray, 1.1, 4)
+                faces = self.face_cascade.detectMultiScale(frame_gray, 1.1, 4)
             
-            self.frame_info[fid]['face_num'] = len(faces)
-            self.frame_info[fid]['face_loc'] = faces
+                self.frame_info[fid]['face_num'] = len(faces)
+                self.frame_info[fid]['face_loc'] = faces
+            else:
+                self.frame_info[fid]['face_num'] = 0
+                self.frame_info[fid]['face_loc'] = []
     
     def color_detection(self, hist_bin_num=60):
         for fid, frame in tqdm(enumerate(self.img_array), desc='color detection'):
@@ -98,33 +122,78 @@ class VideoSummrizer():
                 continue
             else:
                 reduced_shot_index.append(shot_index[p])
-                
-        self.shot_index = reduced_shot_index
         
-        return self.shot_index
+        reduced_shot_index = [0] + reduced_shot_index + [len(self.img_array)]
+        
+        self.shot_span = [(reduced_shot_index[i], reduced_shot_index[i+1]) for i in range(len(reduced_shot_index)-1)]
+        
+        return self.shot_span
     
-    def shot_selection(self):
-        pass
+    def shot_selection(self, max_frame_per_shot=900, total_frame=2700):
+        self.shot_score = [0 for _ in range(len(self.shot_span))]
+        for i, span in tqdm(enumerate(self.shot_span), desc='select shots'):
+            score = 0
+            for j in range(span[0], span[1]):
+                score += int(self.frame_info[i]['face_num'] > 0) + self.frame_info[i]['motion_mean_dist'] / 60 + self.frame_info[i]['hist_diff']
+                # print(int(self.frame_info[i]['face_num'] > 0), self.frame_info[i]['motion_mean_dist'] / 367, self.frame_info[i]['hist_diff'])
+            self.shot_score[i] = score / (span[1] - span[0])
+        self.shot_score = np.array(self.shot_score)
+        sorted_index = np.flip(np.argsort(self.shot_score))
+
+        selected_index = []
+        total_frames = 0
+        for idx in sorted_index:
+            shot_frames = self.shot_span[idx][1] - self.shot_span[idx][0]
+            if shot_frames > max_frame_per_shot or shot_frames + total_frames > total_frame:
+                continue
+            selected_index.append(idx)
+            total_frames += shot_frames
+        selected_index = np.sort(np.array(selected_index))
+
+        self.selected_shots = [self.shot_span[i] for i in selected_index]
+        return self.selected_shots
+        
+    def summrize(self):
+        self.motion_detection()
+        self.face_detection()
+        self.color_detection()
+        
+        self.shot_segmentation()
+        
+        self.shot_selection()
+        
+        return self.selected_shots
     
     def export_shots(self, output_dir='result'):
-        shot_idx = 0
-        shot_path = os.path.join(output_dir, 'shot_' + str(shot_idx) + '.avi')
-        out = cv2.VideoWriter(shot_path,cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
-        for i in tqdm(range(len(img_array)), desc='export video'):
-            if shot_idx < len(self.shot_index) and i == self.shot_index[shot_idx]:
-                out.release()
-                shot_idx += 1
-                shot_path = os.path.join(output_dir, 'shot_' + str(shot_idx) + '.avi')
-                out = cv2.VideoWriter(shot_path,cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
-            out.write(img_array[i])
+        for i, span in tqdm(enumerate(self.shot_span), desc='export shots'):
+            shot_path = os.path.join(output_dir, 'shot_' + str(i) + '.avi')
+            out = cv2.VideoWriter(shot_path,cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
+            for j in range(span[0], span[1]):
+                out.write(self.img_array[j])
+            out.release()
+    
+    def export_annotated_video(self, output_dir='result'):
+        path = os.path.join(output_dir, 'annotated.avi')
+        out = cv2.VideoWriter(path,cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
+        for i, (img, info) in tqdm(enumerate(zip(self.img_array, self.frame_info)), desc='export annotated video'):
+            for (x, y, w, h) in info['face_loc']:
+                cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
+            for (x, y) in info['motion_feature_loc']:
+                cv2.circle(img, (round(x),round(y)), radius=1, color=(0, 255, 0), thickness=-1)
+            out.write(img)
         out.release()
     
-    def export_annonated_shots(self, output_dir='result'):
-        pass
+    def export_summrization(self, output_dir='result'):
+        path = os.path.join(output_dir, 'summrization.avi')
+        out = cv2.VideoWriter(path,cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
+        for i, span in tqdm(enumerate(self.selected_shots), desc='export summrization'):
+            for j in range(span[0], span[1]):
+                out.write(self.img_array[j])
+        out.release()
 
 if __name__ == '__main__':
     # preprocess video
-    path = '.\\project_dataset\\frames\\soccer'
+    path = '.\\project_dataset\\frames\\concert'
     img_array = []
     namelist = os.listdir(path)
     namelist = sorted(namelist, key = lambda x: int(x[5:-4]))
@@ -140,10 +209,12 @@ if __name__ == '__main__':
     video_summrizer.import_video(img_array=img_array)
     # frame stats
     video_summrizer.motion_detection()
-    # video_summrizer.face_detection()
-    # video_summrizer.color_detection()
+    video_summrizer.face_detection()
+    video_summrizer.color_detection()
     # shot segmentation
     video_summrizer.shot_segmentation()
     # shot selection
+    video_summrizer.shot_selection()
     # export video
-    video_summrizer.export_shots()
+    video_summrizer.export_summrization()
+    video_summrizer.export_annotated_video()

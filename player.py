@@ -9,6 +9,7 @@ import sys
 import numpy as np
 from tqdm import tqdm
 import os
+from video_summrizer import VideoSummrizer
 
 def cvImgtoQtImg(cvImg): #opencv image to qt image
     QtImgBuf = cv2.cvtColor(cvImg,  cv2.COLOR_BGR2BGRA)
@@ -38,12 +39,15 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
 
         self.actionshowImg.triggered.connect(self.videoSummarize) # connect showImg button with playVideoFile method
         self.actionPlayOrPause.triggered.connect(self.playOrPause) # connect actionPlayOrPause button with playOrPause method
-
+        
+        self.video_summrizer = VideoSummrizer()
 
     def videoSummarize(self):
         # process by Fei
         # self.frameTuples = [(0, 16200-1)]
-        self.frameTuples = [(0, 300), (16000, 16200-1)]
+        # self.frameTuples = [(0, 300), (16000, 16200-1)]
+        self.video_summrizer.import_video_from_path(self.folderpath, self.audiopath)
+        self.frameTuples = self.video_summrizer.summrize()
         self.renderVideo()
         return
 
