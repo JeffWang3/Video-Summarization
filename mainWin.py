@@ -56,8 +56,12 @@ class Ui_MainWindow(object):
         self.toolBar.addAction(self.actionPlayOrPause)
         '''
 
+        # summrize button
+        self.summarizebtn = QPushButton('Summarize')
+        self.summarizebtn.clicked.connect(self.iconchange)
+
         # open button
-        self.openbtn = QPushButton('Open Video')
+        self.openbtn = QPushButton('Replay')
         self.openbtn.clicked.connect(self.iconchange)
 
         # play or pause button
@@ -74,15 +78,26 @@ class Ui_MainWindow(object):
         #self.menubar.addAction(self.menushowImg.menuAction())
         #self.toolBar.addAction(self.actionPlayOrPause)
 
+        # timer
+        self.playtimer = QtWidgets.QLabel("00:00/_")
+        #self.sp = QtWidgets.QSpinBox()
+
 
         #set layout
+        hboxLayoutup = QHBoxLayout()
+        hboxLayoutup.setContentsMargins(0,0,0,0);
+        hboxLayoutup.addWidget(self.summarizebtn)
+        hboxLayoutup.addWidget(self.openbtn)
+
         hboxLayout = QHBoxLayout()
         hboxLayout.setContentsMargins(0,0,0,0);
-        hboxLayout.addWidget(self.openbtn)
         hboxLayout.addWidget(self.playbtn)
         hboxLayout.addWidget(self.slider)
+        hboxLayout.addWidget(self.playtimer)
+        #hboxLayout.addWidget(self.sp)
 
         vboxlayout = QVBoxLayout()
+        vboxlayout.addLayout(hboxLayoutup)
         vboxlayout.addWidget(self.ImgDispwidget)
         vboxlayout.addLayout(hboxLayout)
 

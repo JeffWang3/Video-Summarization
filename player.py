@@ -37,7 +37,8 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         self.audioPlayer.setMedia(QMediaContent(QUrl.fromLocalFile(self.audiopath)))
         self.frameTuples = []
 
-        self.openbtn.clicked.connect(self.videoSummarize)
+        self.summarizebtn.clicked.connect(self.videoSummarize)
+        self.openbtn.clicked.connect(self.videoOpen)
         self.playbtn.clicked.connect(self.playOrPause)
         self.slider.sliderMoved.connect(self.changeSliderValue)
         #self.actionshowImg.triggered.connect(self.videoSummarize) # connect showImg button with playVideoFile method
@@ -54,6 +55,10 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         self.renderVideo()
         return
 
+    def videoOpen(self):
+        self.iconchange()
+        self.index = 0
+        self.renderVideo()
 
     def renderVideo(self):
         '''
@@ -65,11 +70,11 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
             self.images, self.image_indices = self.getFrameArray(self.folderpath, frameTuples)
             self.audioPositions = self.getAudioPositionTuples(frameTuples)
 
-
         self.audioPlayer.play()
         print("start reading image series from index " + str(self.index))
         for index in tqdm(range(self.index, len(self.images))):
             self.setSliderValue(index)
+            self.setTimer(int((index + 1) / self.fps), int(len(self.images) / self.fps))
             if index == 0 or (self.image_indices[index] - self.image_indices[index-1] != 1) :
                 self.audioPlayer.setPosition(int(self.image_indices[index] * 1000 / 30))
             if self.sleep:
@@ -138,7 +143,8 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         if self.sleep == False:
             self.sleep = True
             self.iconchange()
-        self.index = int(value / 100 * len(self.images))
+        self.index = int(value / 100 * len(self.images) - 1)
+        self.setTimer(int((self.index + 1) / self.fps), int(len(self.images) / self.fps))
         QtImg = cvImgtoQtImg(self.images[self.index])  # convert image to qt style
         self.ImgDisp.setPixmap(QtGui.QPixmap.fromImage(QtImg))
         size = QtImg.size() 
@@ -147,6 +153,21 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
 
     def setSliderValue(self, index):
         self.slider.setValue(int(index / len(self.images) * 100))
+
+    def setTimer(self, spendTime, totalTime):
+        sm = int(spendTime / 60)
+        ss = spendTime % 60
+        tm = int(totalTime / 60)
+        ts = totalTime % 60
+        sm1 = int(sm / 10)
+        sm2 = sm % 10
+        ss1 = int(ss / 10)
+        ss2 = ss % 10
+        tm1 = int(tm / 10)
+        tm2 = tm % 10
+        ts1 = int(ts / 10)
+        ts2 = ts % 10
+        self.playtimer.setText(str(sm1) + str(sm2) + ':' + str(ss1) + str(ss2) + "/" + str(tm1) + str(tm2) + ':' + str(ts1) + str(ts2))
 
 
 
