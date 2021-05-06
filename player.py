@@ -26,6 +26,7 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         self.fps = 30
         self.waitKeyTime = int(1000/self.fps)
         self.sleep = False
+        self.slided = False
         self.currentTupleIndex = 0
         self.index = 0
         self.images = []
@@ -79,10 +80,13 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
 
         self.audioPlayer.play()
         print("start reading image series from index " + str(self.index))
-        for index in tqdm(range(self.index, len(self.images))):
+        for index in tqdm(range(self.index, len(self.images) - 1)):
             self.setSliderValue(index)
             self.setTimer(int((index + 1) / self.fps), int(len(self.images) / self.fps))
             if index == 0 or (self.image_indices[index] - self.image_indices[index-1] != 1) :
+                self.audioPlayer.setPosition(int(self.image_indices[index] * 1000 / 30))
+            elif self.slided == True :
+                self.slided = False
                 self.audioPlayer.setPosition(int(self.image_indices[index] * 1000 / 30))
             if self.sleep:
                 break
@@ -94,7 +98,7 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
             cv2.waitKey(self.waitKeyTime) # sleep according to fps
         
         self.index = index
-        if self.index == (len(self.images) - 1):
+        if self.index == (len(self.images) - 2):
             self.openbtn.setEnabled(True)
         # print("\n *** pause or exit from index " + str(self.index))
         self.audioPlayer.pause()
@@ -152,8 +156,9 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         if self.sleep == False:
             self.sleep = True
             self.iconchange()
-        self.index = int(value / 100 * len(self.images) - 1)
-        if self.index == (len(self.images) - 1):
+        self.slided = True
+        self.index = int(value / 100 * (len(self.images) - 2))
+        if self.index == (len(self.images) - 2):
             self.openbtn.setEnabled(True)
         self.setTimer(int((self.index + 1) / self.fps), int(len(self.images) / self.fps))
         QtImg = cvImgtoQtImg(self.images[self.index])  # convert image to qt style
@@ -162,8 +167,8 @@ class mainwin(QtWidgets.QMainWindow, mainWin.Ui_MainWindow):
         self.ImgDisp.resize(size)
         self.ImgDisp.show() # refresh the image
 
-    def setSliderValue(self, index):
-        self.slider.setValue(int(index / len(self.images) * 100))
+    def setSliderValue(self, Sliderindex):
+        self.slider.setValue(int(Sliderindex / (len(self.images) - 2) * 100))
 
     def setTimer(self, spendTime, totalTime):
         sm = int(spendTime / 60)
