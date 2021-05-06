@@ -62,7 +62,7 @@ class Ui_MainWindow(object):
 
         # open button
         self.openbtn = QPushButton('Replay')
-        self.openbtn.clicked.connect(self.iconchange)
+        self.openbtn.setEnabled(False)
 
         # play or pause button
         self.playbtn = QPushButton()
